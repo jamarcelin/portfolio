@@ -1,0 +1,26 @@
+node_modules
+dist
+.DS_Store
+*.pkg
+.img
+
+# Local admin data (generated artifacts)
+data/
+
+# Admin tool
+admin/.env
+admin/node_modules
+
+# Terraform (moved to backend/)
+backend/terraform/.terraform
+backend/terraform/.terraform.lock.hcl
+backend/terraform/lambda/function.zip
+backend/terraform/lambda/node_modules
+backend/terraform/lambda/package-lock.json
+
+# Legacy paths (in case)
+terraform/.terraform
+terraform/.terraform.lock.hcl
+terraform/lambda/function.zip
+terraform/lambda/node_modules
+terraform/lambda/package-lock.json
