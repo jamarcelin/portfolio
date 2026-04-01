@@ -7,23 +7,26 @@ const steps = [
   {
     icon: CloudUpload,
     color: '#00d4ff',
-    title: 'Upload',
+    title: 'Ingest',
+    tags: ['S3', 'SQS', 'Lambda', 'Node.js'],
     description:
-      'Photos are uploaded to S3 via the admin tool with a collection name and description. The description gives the embedding model semantic context about the shoot.',
+      'A custom admin tool uploads originals to S3, triggering an SQS event that fans out to a Lambda processor. The Lambda generates three derivative sizes via sharp and writes structured metadata to a manifest — all without blocking the upload flow.',
   },
   {
     icon: Psychology,
     color: '#ff6b35',
     title: 'Embed',
+    tags: ['Bedrock', 'Titan Embed v1', 'Vector DB'],
     description:
-      'A Lambda function processes each original — resizing to three sizes and calling Amazon Titan Embed Image v1 with the photo and collection description to generate a 1024-dimension vector.',
+      'The processor calls Amazon Titan Embed Image v1 on each photo alongside its collection description, producing a 1024-dim multimodal vector. Embeddings are upserted into a private JSON store on S3, designed for warm-cache reads on repeat searches.',
   },
   {
     icon: ImageSearch,
     color: '#00ff88',
     title: 'Search',
+    tags: ['API Gateway', 'Cosine Similarity', 'IaC'],
     description:
-      'Your text prompt is embedded using the same model. A second Lambda ranks every photo by cosine similarity to the prompt and returns the closest matches in real time.',
+      'A query Lambda embeds the prompt text with the same model, then ranks all photos by cosine similarity in-memory. The full stack — API Gateway, IAM roles, Lambda, and S3 policies — is provisioned via Terraform for reproducible infrastructure.',
   },
 ]
 
@@ -85,17 +88,6 @@ const HowItWorks = () => (
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
           gap: 3,
-          position: 'relative',
-          '&::before': {
-            content: '""',
-            display: { xs: 'none', md: 'block' },
-            position: 'absolute',
-            top: 40,
-            left: 'calc(16.67% + 20px)',
-            right: 'calc(16.67% + 20px)',
-            height: '1px',
-            background: 'linear-gradient(90deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.06) 100%)',
-          },
         }}
       >
         {steps.map((step, i) => (
@@ -161,6 +153,28 @@ const HowItWorks = () => (
               <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: '1.15rem' }}>
                 {step.title}
               </Typography>
+
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                {step.tags.map(tag => (
+                  <Typography
+                    key={tag}
+                    sx={{
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      color: step.color,
+                      background: `${step.color}12`,
+                      border: `1px solid ${step.color}30`,
+                      borderRadius: '6px',
+                      px: 1,
+                      py: 0.25,
+                      fontFamily: 'monospace',
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    {tag}
+                  </Typography>
+                ))}
+              </Box>
 
               <Typography sx={{ color: '#666', fontSize: '0.9rem', lineHeight: 1.7 }}>
                 {step.description}
