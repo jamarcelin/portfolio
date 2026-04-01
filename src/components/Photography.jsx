@@ -8,61 +8,64 @@ import {
   DialogContent,
   IconButton,
   Chip,
-  Button,
 } from '@mui/material'
-import { Close as CloseIcon, Camera } from '@mui/icons-material'
+import { Close as CloseIcon, Camera, Collections } from '@mui/icons-material'
 import { motion, AnimatePresence } from 'framer-motion'
 import Masonry from 'react-masonry-css'
+import SearchBar from './SearchBar'
+import { usePhotoSearch } from '../hooks/usePhotoSearch'
 
-const S3_MANIFEST_URL = 'https://joshs-photo-storage.s3.us-east-1.amazonaws.com/bin/manifest.json'
+const S3_MANIFEST_URL    = 'https://joshs-photo-storage.s3.us-east-1.amazonaws.com/bin/manifest.json'
+const S3_COLLECTIONS_URL = 'https://joshs-photo-storage.s3.us-east-1.amazonaws.com/bin/collections.json'
 
 const PAGE_SIZE = 12
 
 const Photography = () => {
-  const [allPhotos, setAllPhotos]   = useState([])
-  const [loading, setLoading]       = useState(true)
-  const [selectedPhoto, setSelectedPhoto] = useState(null)
-  const [activeTag, setActiveTag]   = useState('all')
-  const [limit, setLimit]           = useState(PAGE_SIZE)
+  const [allPhotos, setAllPhotos]           = useState([])
+  const [collections, setCollections]       = useState([])
+  const [loading, setLoading]               = useState(true)
+  const [selectedPhoto, setSelectedPhoto]   = useState(null)
+  const [activeCollectionId, setActiveCollectionId] = useState('all')
+  const [limit, setLimit]                   = useState(PAGE_SIZE)
+
+  const { results: searchResults, loading: searching, error: searchError, search, clear: clearSearch } = usePhotoSearch()
+  const isSearching = searchResults !== null
 
   useEffect(() => {
-    fetch(S3_MANIFEST_URL)
-      .then(r => r.json())
-      .then(data => setAllPhotos(Array.isArray(data) ? data : []))
-      .catch(() => setAllPhotos([]))
-      .finally(() => setLoading(false))
+    Promise.all([
+      fetch(S3_MANIFEST_URL).then(r => r.json()).catch(() => []),
+      fetch(S3_COLLECTIONS_URL).then(r => r.json()).catch(() => []),
+    ]).then(([photos, cols]) => {
+      setAllPhotos(Array.isArray(photos) ? photos : [])
+      setCollections(Array.isArray(cols) ? cols : [])
+    }).finally(() => setLoading(false))
   }, [])
 
-  // Derive unique tags from all photos
-  const allTags = useMemo(() => {
-    const set = new Set()
-    allPhotos.forEach(p => (p.tags ?? []).forEach(t => set.add(t)))
-    return [...set].sort()
-  }, [allPhotos])
-
-  // Shuffle once per fetch so the grid looks different each visit
   const shuffled = useMemo(() => [...allPhotos].sort(() => Math.random() - 0.5), [allPhotos])
 
-  const filteredPhotos = activeTag === 'all'
-    ? shuffled
-    : shuffled.filter(p =>
-        Array.isArray(p.tags) ? p.tags.includes(activeTag) : p.category === activeTag
-      )
+  const filteredPhotos = useMemo(() => {
+    if (activeCollectionId === 'all') return shuffled
+    return shuffled.filter(p => p.collectionId === activeCollectionId)
+  }, [shuffled, activeCollectionId])
 
-  const visiblePhotos = filteredPhotos.slice(0, limit)
-  const remaining = filteredPhotos.length - limit
+  const visiblePhotos   = isSearching ? searchResults : filteredPhotos.slice(0, limit)
+  const remaining       = isSearching ? 0 : filteredPhotos.length - limit
 
-  const handleTagChange = (tag) => {
-    setActiveTag(tag)
+  const handleCollectionChange = (id) => {
+    setActiveCollectionId(id)
     setLimit(PAGE_SIZE)
+    clearSearch()
+  }
+
+  const handleSearch = (prompt) => {
+    const colId = activeCollectionId !== 'all' ? activeCollectionId : null
+    search(prompt, { limit: 20, collectionId: colId })
   }
 
   const formatTimestamp = (ts) => {
     if (!ts) return null
     try {
-      return new Date(ts).toLocaleDateString('en-US', {
-        year: 'numeric', month: 'long', day: 'numeric',
-      })
+      return new Date(ts).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     } catch { return null }
   }
 
@@ -70,7 +73,7 @@ const Photography = () => {
     <Box
       id="photography"
       sx={{
-        py: { xs: 8, md: 16 },
+        py: { xs: 8, md: 12 },
         background: 'linear-gradient(180deg, #0a0a0a 0%, #000000 100%)',
         position: 'relative',
         overflow: 'hidden',
@@ -111,42 +114,47 @@ const Photography = () => {
           >
             Photography
           </Typography>
-          <Typography
-            sx={{
-              textAlign: 'center',
-              mb: 6,
-              color: '#b3b3b3',
-              fontSize: '1.2rem',
-              maxWidth: 600,
-              mx: 'auto',
-            }}
-          >
+          <Typography sx={{ textAlign: 'center', mb: 6, color: '#b3b3b3', fontSize: '1.1rem', maxWidth: 500, mx: 'auto' }}>
             Capturing life's fleeting moments and transforming them into timeless stories
           </Typography>
         </motion.div>
 
-        {/* Tag filter */}
-        {allTags.length > 0 && (
+        {/* Search bar */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          viewport={{ once: true }}
+        >
+          <SearchBar
+            onSearch={handleSearch}
+            onClear={clearSearch}
+            loading={searching}
+            hasResults={isSearching}
+          />
+        </motion.div>
+
+        {/* Collection filter */}
+        {collections.length > 0 && !isSearching && (
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
+            transition={{ duration: 0.6, delay: 0.15 }}
             viewport={{ once: true }}
           >
             <Box sx={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 1, mb: 6 }}>
-              {['all', ...allTags].map((tag) => {
-                const active = activeTag === tag
+              {[{ id: 'all', name: 'All' }, ...collections].map((col) => {
+                const active = activeCollectionId === col.id
                 return (
                   <Chip
-                    key={tag}
-                    icon={tag === 'all' ? <Camera sx={{ fontSize: '0.9rem !important' }} /> : undefined}
-                    label={tag === 'all' ? 'All' : tag}
-                    onClick={() => handleTagChange(tag)}
+                    key={col.id}
+                    icon={col.id === 'all' ? <Camera sx={{ fontSize: '0.9rem !important' }} /> : <Collections sx={{ fontSize: '0.9rem !important' }} />}
+                    label={col.name}
+                    onClick={() => handleCollectionChange(col.id)}
                     sx={{
                       height: 32,
                       fontSize: '0.8rem',
                       fontWeight: active ? 700 : 500,
-                      textTransform: 'capitalize',
                       background: active
                         ? 'linear-gradient(135deg, #ff6b35 0%, #e64a19 100%)'
                         : 'rgba(255, 255, 255, 0.05)',
@@ -169,8 +177,22 @@ const Photography = () => {
           </motion.div>
         )}
 
+        {/* Search error */}
+        {searchError && (
+          <Typography sx={{ textAlign: 'center', color: '#ff4444', mb: 4, fontSize: '0.9rem' }}>
+            {searchError}
+          </Typography>
+        )}
+
+        {/* Search results label */}
+        {isSearching && !searching && (
+          <Typography sx={{ textAlign: 'center', color: '#666', mb: 4, fontSize: '0.85rem' }}>
+            {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
+          </Typography>
+        )}
+
         {/* Loading / empty state */}
-        {(loading || allPhotos.length === 0) && (
+        {(loading || (!isSearching && allPhotos.length === 0)) && (
           <Box sx={{ textAlign: 'center', py: 10 }}>
             <Camera sx={{ fontSize: '4rem', color: 'rgba(255,255,255,0.1)', mb: 2 }} />
             <Typography sx={{ color: '#555', fontSize: '1.1rem' }}>
@@ -181,116 +203,89 @@ const Photography = () => {
 
         {/* Masonry grid */}
         <GlobalStyles styles={{
-          '.masonry-grid': {
-            display: 'flex',
-            marginLeft: '-16px',
-            width: 'auto',
-          },
-          '.masonry-grid-col': {
-            paddingLeft: '16px',
-            backgroundClip: 'padding-box',
-          },
-          '.masonry-grid-col > div': {
-            marginBottom: '16px',
-          },
+          '.masonry-grid': { display: 'flex', marginLeft: '-16px', width: 'auto' },
+          '.masonry-grid-col': { paddingLeft: '16px', backgroundClip: 'padding-box' },
+          '.masonry-grid-col > div': { marginBottom: '16px' },
         }} />
 
-        <Masonry
-          breakpointCols={{ default: 3, 900: 2, 500: 1 }}
-          className="masonry-grid"
-          columnClassName="masonry-grid-col"
-        >
-          {visiblePhotos.map((photo, index) => (
-            <motion.div
-              key={photo.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: Math.min(index * 0.04, 0.4) }}
-            >
-              <Box
-                onClick={() => setSelectedPhoto(photo)}
-                sx={{
-                  cursor: 'pointer',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  borderRadius: '16px',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  background: '#111',
-                  display: 'block',
-                  '&:hover': {
-                    borderColor: 'rgba(255, 107, 53, 0.35)',
-                    boxShadow: '0 16px 48px rgba(0, 0, 0, 0.5)',
-                    '& .photo-overlay': { opacity: 1 },
-                    '& img': { transform: 'scale(1.03)' },
-                  },
-                  transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
-                }}
+        <AnimatePresence mode="wait">
+          <Masonry
+            key={isSearching ? 'search' : activeCollectionId}
+            breakpointCols={{ default: 3, 900: 2, 500: 1 }}
+            className="masonry-grid"
+            columnClassName="masonry-grid-col"
+          >
+            {visiblePhotos.map((photo, index) => (
+              <motion.div
+                key={photo.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: Math.min(index * 0.04, 0.4) }}
               >
                 <Box
-                  component="img"
-                  src={photo.medium || photo.src}
-                  alt={photo.title || ''}
-                  loading="lazy"
+                  onClick={() => setSelectedPhoto(photo)}
                   sx={{
-                    width: '100%',
-                    height: 'auto',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    background: '#111',
                     display: 'block',
-                    transition: 'transform 0.4s ease',
-                  }}
-                />
-
-                {/* Hover overlay */}
-                <Box
-                  className="photo-overlay"
-                  sx={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: 'linear-gradient(180deg, transparent 45%, rgba(0,0,0,0.82) 100%)',
-                    opacity: 0,
-                    transition: 'opacity 0.3s ease',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'flex-end',
-                    p: 2,
-                    gap: 0.75,
+                    '&:hover': {
+                      borderColor: 'rgba(255, 107, 53, 0.35)',
+                      boxShadow: '0 16px 48px rgba(0, 0, 0, 0.5)',
+                      '& .photo-overlay': { opacity: 1 },
+                      '& img': { transform: 'scale(1.03)' },
+                    },
+                    transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
                   }}
                 >
-                  {photo.title && (
-                    <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3 }}>
-                      {photo.title}
-                    </Typography>
-                  )}
-                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                    {(photo.tags ?? [photo.category]).filter(Boolean).slice(0, 3).map(tag => (
-                      <Chip
-                        key={tag}
-                        label={tag}
-                        size="small"
-                        sx={{
-                          fontSize: '0.68rem',
-                          height: 18,
-                          background: 'rgba(255, 107, 53, 0.25)',
-                          color: '#ff8a65',
-                          border: '1px solid rgba(255, 107, 53, 0.3)',
-                          textTransform: 'capitalize',
-                          '& .MuiChip-label': { px: 0.75 },
-                        }}
-                      />
-                    ))}
+                  <Box
+                    component="img"
+                    src={photo.medium || photo.src}
+                    alt={photo.title || ''}
+                    loading="lazy"
+                    sx={{ width: '100%', height: 'auto', display: 'block', transition: 'transform 0.4s ease' }}
+                  />
+                  <Box
+                    className="photo-overlay"
+                    sx={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: 'linear-gradient(180deg, transparent 45%, rgba(0,0,0,0.82) 100%)',
+                      opacity: 0,
+                      transition: 'opacity 0.3s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-end',
+                      p: 2,
+                      gap: 0.75,
+                    }}
+                  >
+                    {photo.title && (
+                      <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3 }}>
+                        {photo.title}
+                      </Typography>
+                    )}
+                    {photo.albumName && (
+                      <Typography sx={{ color: 'rgba(255,107,53,0.85)', fontSize: '0.75rem', fontWeight: 500 }}>
+                        {photo.albumName}
+                      </Typography>
+                    )}
                   </Box>
                 </Box>
-              </Box>
-            </motion.div>
-          ))}
-        </Masonry>
+              </motion.div>
+            ))}
+          </Masonry>
+        </AnimatePresence>
 
         {/* Load more */}
         {remaining > 0 && (
           <Box sx={{ textAlign: 'center', mt: 6 }}>
-            <Button
+            <Box
+              component="button"
               onClick={() => setLimit(l => l + PAGE_SIZE)}
-              variant="outlined"
-              size="large"
               sx={{
                 borderRadius: '30px',
                 px: 5,
@@ -298,19 +293,19 @@ const Photography = () => {
                 border: '1px solid rgba(255, 255, 255, 0.2)',
                 color: '#ffffff',
                 fontWeight: 500,
-                textTransform: 'none',
                 fontSize: '1rem',
                 background: 'rgba(255, 255, 255, 0.05)',
-                backdropFilter: 'blur(10px)',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                fontFamily: 'inherit',
                 '&:hover': {
                   background: 'rgba(255, 255, 255, 0.1)',
                   borderColor: 'rgba(255, 255, 255, 0.4)',
                 },
-                transition: 'all 0.3s ease',
               }}
             >
               Load more ({remaining} remaining)
-            </Button>
+            </Box>
           </Box>
         )}
 
@@ -348,7 +343,6 @@ const Photography = () => {
 
             {selectedPhoto && (
               <Box>
-                {/* Large image */}
                 <Box
                   component="img"
                   src={selectedPhoto.large || selectedPhoto.src}
@@ -364,41 +358,25 @@ const Photography = () => {
                   }}
                 />
 
-                {/* Metadata row */}
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'flex-start', justifyContent: 'space-between' }}>
                   <Box>
                     {selectedPhoto.title && (
-                      <Typography variant="h5" sx={{ color: '#fff', fontWeight: 700, mb: 1 }}>
+                      <Typography variant="h5" sx={{ color: '#fff', fontWeight: 700, mb: 0.5 }}>
                         {selectedPhoto.title}
                       </Typography>
                     )}
-
-                    {/* Tags */}
-                    <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: selectedPhoto.camera || selectedPhoto.timestamp ? 1.5 : 0 }}>
-                      {(selectedPhoto.tags ?? [selectedPhoto.category]).filter(Boolean).map(tag => (
-                        <Chip
-                          key={tag}
-                          label={tag}
-                          size="small"
-                          sx={{
-                            background: 'rgba(255, 107, 53, 0.15)',
-                            color: '#ff6b35',
-                            border: '1px solid rgba(255, 107, 53, 0.3)',
-                            textTransform: 'capitalize',
-                            fontSize: '0.8rem',
-                          }}
-                        />
-                      ))}
-                    </Box>
-
+                    {selectedPhoto.albumName && (
+                      <Typography sx={{ color: '#ff6b35', fontSize: '0.85rem', fontWeight: 500, mb: 1.5 }}>
+                        {selectedPhoto.albumName}
+                      </Typography>
+                    )}
                     {selectedPhoto.description && (
-                      <Typography sx={{ color: '#999', fontSize: '0.95rem', mt: 1, maxWidth: 500 }}>
+                      <Typography sx={{ color: '#999', fontSize: '0.95rem', maxWidth: 500 }}>
                         {selectedPhoto.description}
                       </Typography>
                     )}
                   </Box>
 
-                  {/* Camera + date */}
                   {(selectedPhoto.camera || selectedPhoto.timestamp) && (
                     <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
                       {selectedPhoto.camera && (

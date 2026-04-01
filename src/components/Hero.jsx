@@ -9,12 +9,10 @@ import {
 } from '@mui/material'
 import { motion } from 'framer-motion'
 import { Code, Camera, Restaurant, KeyboardArrowDown } from '@mui/icons-material'
-import { useNavigate } from 'react-router-dom'
 
 const Hero = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const navigate = useNavigate()
 
   const handleNavClick = (href) => {
     const element = document.querySelector(href)
@@ -33,36 +31,24 @@ const Hero = () => {
         justifyContent: 'center',
         position: 'relative',
         overflow: 'hidden',
+        background: 'linear-gradient(180deg, #000000 0%, #0a0a0a 100%)',
         '&::before': {
           content: '""',
           position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundImage: 'url(https://joshs-photo-storage.s3.us-east-1.amazonaws.com/bin/5T9A1411.jpeg)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
+          inset: 0,
+          background: `
+            radial-gradient(circle at 20% 50%, rgba(0, 212, 255, 0.06) 0%, transparent 50%),
+            radial-gradient(circle at 80% 50%, rgba(139, 92, 246, 0.06) 0%, transparent 50%)
+          `,
           zIndex: 1,
-        },
-        '&::after': {
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.6) 100%)',
-          zIndex: 2,
         },
       }}
     >
       <Container 
         maxWidth="md" 
         sx={{ 
-          position: 'relative', 
-          zIndex: 3,
+          position: 'relative',
+          zIndex: 2,
           textAlign: 'center',
         }}
       >
@@ -147,66 +133,32 @@ const Hero = () => {
 
 
             {/* CTA Buttons */}
-            <Box sx={{ 
-              display: 'flex', 
-              gap: 3, 
-              flexWrap: 'wrap',
-              justifyContent: 'center'
-            }}>
-              <Button
-                variant="contained"
-                size="large"
-                onClick={() => handleNavClick('#about')}
-                sx={{
-                  borderRadius: '30px',
-                  px: 4,
-                  py: 1.5,
-                  background: 'linear-gradient(135deg, #00d4ff 0%, #0099cc 100%)',
-                  color: '#000',
-                  fontWeight: 600,
-                  fontSize: '1rem',
-                  textTransform: 'none',
-                  fontFamily: '"SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif',
-                  boxShadow: '0 8px 25px rgba(0, 212, 255, 0.3)',
-                  border: 'none',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #4de6ff 0%, #00d4ff 100%)',
-                    boxShadow: '0 12px 30px rgba(0, 212, 255, 0.4)',
-                    transform: 'translateY(-2px)',
-                  },
-                  transition: 'all 0.3s ease',
-                }}
-              >
-                About Me
-              </Button>
-              
-              <Button
-                variant="outlined"
-                size="large"
-                onClick={() => navigate('/photography')}
-                sx={{
-                  borderRadius: '30px',
-                  px: 4,
-                  py: 1.5,
-                  border: '2px solid rgba(255, 255, 255, 0.3)',
-                  color: '#ffffff',
-                  fontWeight: 500,
-                  fontSize: '1rem',
-                  textTransform: 'none',
-                  fontFamily: '"SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  backdropFilter: 'blur(10px)',
-                  '&:hover': {
-                    background: 'rgba(255, 255, 255, 0.2)',
-                    borderColor: 'rgba(255, 255, 255, 0.5)',
-                    transform: 'translateY(-2px)',
-                  },
-                  transition: 'all 0.3s ease',
-                }}
-              >
-                Photography
-              </Button>
-            </Box>
+            <Button
+              variant="contained"
+              size="large"
+              onClick={() => handleNavClick('#photography')}
+              sx={{
+                borderRadius: '30px',
+                px: 5,
+                py: 1.5,
+                background: 'linear-gradient(135deg, #ff6b35 0%, #e64a19 100%)',
+                color: '#fff',
+                fontWeight: 600,
+                fontSize: '1rem',
+                textTransform: 'none',
+                fontFamily: '"SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif',
+                boxShadow: '0 8px 25px rgba(255, 107, 53, 0.3)',
+                border: 'none',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #ff8a65 0%, #ff6b35 100%)',
+                  boxShadow: '0 12px 30px rgba(255, 107, 53, 0.4)',
+                  transform: 'translateY(-2px)',
+                },
+                transition: 'all 0.3s ease',
+              }}
+            >
+              View Photography
+            </Button>
           </Box>
         </motion.div>
       </Container>
@@ -236,7 +188,7 @@ const Hero = () => {
               },
               transition: 'color 0.3s ease',
             }}
-            onClick={() => handleNavClick('#about')}
+            onClick={() => handleNavClick('#photography')}
           />
         </motion.div>
       </Box>

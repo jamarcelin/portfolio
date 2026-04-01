@@ -27,8 +27,8 @@ const Navbar = () => {
   const location  = useLocation()
 
   const navItems = [
-    { label: 'About',        type: 'scroll', href: '#about' },
-    { label: 'Photography',  type: 'route',  to: '/photography' },
+    { label: 'Photography', type: 'scroll', href: '#photography' },
+    { label: 'How It Works', type: 'scroll', href: '#how-it-works' },
   ]
 
   useEffect(() => {

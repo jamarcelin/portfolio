@@ -3,10 +3,9 @@ import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom'
 import { Box } from '@mui/material'
 import Navbar from './components/Navbar'
 import Hero from './components/Hero'
-import About from './components/About'
-import PhotoPreview from './components/PhotoPreview'
+import Photography from './components/Photography'
+import HowItWorks from './components/HowItWorks'
 import Footer from './components/Footer'
-import PhotographyPage from './pages/PhotographyPage'
 
 const Layout = () => (
   <Box sx={{ minHeight: '100vh' }}>
@@ -19,8 +18,8 @@ const Layout = () => (
 const HomePage = () => (
   <>
     <Hero />
-    <About />
-    <PhotoPreview />
+    <Photography />
+    <HowItWorks />
   </>
 )
 
@@ -30,7 +29,6 @@ function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
-          <Route path="/photography" element={<PhotographyPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
