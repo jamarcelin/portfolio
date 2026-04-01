@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 
-const SEARCH_URL = 'https://xjtqlwnby3taezhwkwjjz36hbq0lhgzd.lambda-url.us-east-1.on.aws/'
+const SEARCH_URL = 'https://v2vsrc7he7.execute-api.us-east-1.amazonaws.com/'
 
 export function usePhotoSearch() {
   const [results, setResults]   = useState(null)   // null = not in search mode
