@@ -45,7 +45,7 @@ const Photography = () => {
 
   const filteredPhotos = useMemo(() => {
     if (activeCollectionId === 'all') return shuffled
-    return shuffled.filter(p => p.collectionId === activeCollectionId)
+    return shuffled.filter(p => p.album === activeCollectionId)
   }, [shuffled, activeCollectionId])
 
   const visiblePhotos   = isSearching ? searchResults : filteredPhotos.slice(0, limit)
@@ -143,14 +143,14 @@ const Photography = () => {
             viewport={{ once: true }}
           >
             <Box sx={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 1, mb: 6 }}>
-              {[{ id: 'all', name: 'All' }, ...collections].map((col) => {
-                const active = activeCollectionId === col.id
+              {[{ s3Album: 'all', name: 'All' }, ...collections].map((col) => {
+                const active = activeCollectionId === col.s3Album
                 return (
                   <Chip
-                    key={col.id}
-                    icon={col.id === 'all' ? <Camera sx={{ fontSize: '0.9rem !important' }} /> : <Collections sx={{ fontSize: '0.9rem !important' }} />}
+                    key={col.s3Album}
+                    icon={col.s3Album === 'all' ? <Camera sx={{ fontSize: '0.9rem !important' }} /> : <Collections sx={{ fontSize: '0.9rem !important' }} />}
                     label={col.name}
-                    onClick={() => handleCollectionChange(col.id)}
+                    onClick={() => handleCollectionChange(col.s3Album)}
                     sx={{
                       height: 32,
                       fontSize: '0.8rem',
