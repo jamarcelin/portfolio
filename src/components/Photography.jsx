@@ -9,11 +9,121 @@ import {
   IconButton,
   Chip,
 } from '@mui/material'
-import { Close as CloseIcon, Camera, Collections } from '@mui/icons-material'
+import { Close as CloseIcon, Camera, Collections, ColorLens } from '@mui/icons-material'
 import { motion, AnimatePresence } from 'framer-motion'
 import Masonry from 'react-masonry-css'
 import SearchBar from './SearchBar'
 import { usePhotoSearch } from '../hooks/usePhotoSearch'
+
+// --- Palette color-sort helpers (ported from admin color-lab) ---
+
+function deltaE2000(lab1, lab2) {
+  const { L: L1, a: a1, b: b1 } = lab1
+  const { L: L2, a: a2, b: b2 } = lab2
+  const avgLp = (L1 + L2) / 2
+  const C1 = Math.sqrt(a1 * a1 + b1 * b1)
+  const C2 = Math.sqrt(a2 * a2 + b2 * b2)
+  const avgC = (C1 + C2) / 2
+  const G = 0.5 * (1 - Math.sqrt((avgC ** 7) / ((avgC ** 7) + (25 ** 7))))
+  const a1p = (1 + G) * a1, a2p = (1 + G) * a2
+  const C1p = Math.sqrt(a1p * a1p + b1 * b1)
+  const C2p = Math.sqrt(a2p * a2p + b2 * b2)
+  const avgCp = (C1p + C2p) / 2
+  const hRad = (a, b) => { const h = Math.atan2(b, a); return h >= 0 ? h : h + 2 * Math.PI }
+  const h1pDeg = hRad(a1p, b1) * (180 / Math.PI)
+  const h2pDeg = hRad(a2p, b2) * (180 / Math.PI)
+  const dLp = L2 - L1, dCp = C2p - C1p
+  let dhpDeg = 0
+  if (C1p * C2p !== 0) {
+    const diff = h2pDeg - h1pDeg
+    dhpDeg = Math.abs(diff) <= 180 ? diff : diff > 180 ? diff - 360 : diff + 360
+  }
+  const dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin(dhpDeg / 2 * Math.PI / 180)
+  let avgHpDeg = h1pDeg + h2pDeg
+  if (C1p * C2p !== 0) {
+    if (Math.abs(h1pDeg - h2pDeg) > 180) avgHpDeg += 360
+    avgHpDeg /= 2
+    if (avgHpDeg >= 360) avgHpDeg -= 360
+  }
+  const toRad = d => d * Math.PI / 180
+  const T = 1 - 0.17 * Math.cos(toRad(avgHpDeg - 30)) + 0.24 * Math.cos(toRad(2 * avgHpDeg))
+    + 0.32 * Math.cos(toRad(3 * avgHpDeg + 6)) - 0.20 * Math.cos(toRad(4 * avgHpDeg - 63))
+  const Rc = 2 * Math.sqrt((avgCp ** 7) / ((avgCp ** 7) + (25 ** 7)))
+  const Sl = 1 + (0.015 * (avgLp - 50) ** 2) / Math.sqrt(20 + (avgLp - 50) ** 2)
+  const Sc = 1 + 0.045 * avgCp, Sh = 1 + 0.015 * avgCp * T
+  const Rt = -Math.sin(toRad(2 * 30 * Math.exp(-(((avgHpDeg - 275) / 25) ** 2)))) * Rc
+  return Math.sqrt((dLp / Sl) ** 2 + (dCp / Sc) ** 2 + (dHp / Sh) ** 2 + Rt * (dCp / Sc) * (dHp / Sh))
+}
+
+function paletteOf(photo) {
+  const p = photo.colorMetadata?.palette
+  if (Array.isArray(p) && p.length > 0) return p.map(e => ({ weight: e.weight ?? 0, lab: e.lab }))
+  const lab = photo.colorMetadata?.average?.lab
+  return [{ weight: 1, lab: lab ?? { L: 0, a: 0, b: 0 } }]
+}
+
+function colorDistancePalette(a, b) {
+  const directed = (from, to) => {
+    let total = 0
+    for (const fa of from) {
+      let best = Infinity
+      for (const tb of to) best = Math.min(best, deltaE2000(fa.lab, tb.lab))
+      total += best * fa.weight
+    }
+    return total
+  }
+  return (directed(a, b) + directed(b, a)) / 2
+}
+
+function twoOptImproveOrder(order, distFn, n) {
+  if (order.length < 6) return order
+  const windowSize = n > 350 ? 24 : 44, maxPasses = n > 350 ? 1 : 2
+  const out = order.slice(), start = Date.now(), budget = n > 350 ? 200 : 260
+  for (let pass = 0; pass < maxPasses; pass++) {
+    let improved = false
+    for (let i = 1; i < out.length - 2; i++) {
+      let bestK = -1, bestGain = 0
+      for (let k = i + 1; k <= Math.min(out.length - 2, i + windowSize); k++) {
+        const gain = (distFn(out[i - 1], out[i]) + distFn(out[k], out[k + 1]))
+          - (distFn(out[i - 1], out[k]) + distFn(out[i], out[k + 1]))
+        if (gain > bestGain) { bestGain = gain; bestK = k }
+      }
+      if (bestK !== -1) {
+        let l = i, r = bestK
+        while (l < r) { const t = out[l]; out[l] = out[r]; out[r] = t; l++; r-- }
+        improved = true
+      }
+      if (i % 10 === 0 && Date.now() - start > budget) return out
+    }
+    if (!improved) break
+  }
+  return out
+}
+
+function nearestNeighborPaletteOrder(photos) {
+  if (photos.length <= 2) return photos
+  const palettes = photos.map(paletteOf)
+  const reps = palettes.map(p => p[0]?.lab ?? { L: 0, a: 0, b: 0 })
+  const remaining = new Set(photos.map((_, i) => i))
+  let current = [...remaining].sort((ia, ib) => {
+    const a = reps[ia], b = reps[ib]
+    return a.L !== b.L ? a.L - b.L : a.a !== b.a ? a.a - b.a : a.b - b.b
+  })[0]
+  const orderedIdx = [current]
+  remaining.delete(current)
+  while (remaining.size > 0) {
+    let best = -1, bestDist = Infinity
+    for (const idx of remaining) {
+      const d = colorDistancePalette(palettes[current], palettes[idx])
+      if (d < bestDist) { bestDist = d; best = idx }
+    }
+    current = best; orderedIdx.push(current); remaining.delete(current)
+  }
+  const optimized = twoOptImproveOrder(orderedIdx, (x, y) => colorDistancePalette(palettes[x], palettes[y]), photos.length)
+  return optimized.map(i => photos[i])
+}
+
+// ----------------------------------------------------------------
 
 const S3_MANIFEST_URL    = 'https://joshs-photo-storage.s3.us-east-1.amazonaws.com/bin/manifest.json'
 const S3_COLLECTIONS_URL = 'https://joshs-photo-storage.s3.us-east-1.amazonaws.com/bin/collections.json'
@@ -27,6 +137,7 @@ const Photography = () => {
   const [selectedPhoto, setSelectedPhoto]   = useState(null)
   const [activeCollectionId, setActiveCollectionId] = useState('all')
   const [limit, setLimit]                   = useState(PAGE_SIZE)
+  const [paletteSort, setPaletteSort]       = useState(false)
 
   const { results: searchResults, loading: searching, error: searchError, search, clear: clearSearch } = usePhotoSearch()
   const isSearching = searchResults !== null
@@ -48,12 +159,19 @@ const Photography = () => {
     return shuffled.filter(p => p.album === activeCollectionId)
   }, [shuffled, activeCollectionId])
 
-  const visiblePhotos   = isSearching ? searchResults : filteredPhotos.slice(0, limit)
-  const remaining       = isSearching ? 0 : filteredPhotos.length - limit
+  const paletteSortedPhotos = useMemo(() => {
+    if (!paletteSort || activeCollectionId === 'all') return filteredPhotos
+    return nearestNeighborPaletteOrder(filteredPhotos)
+  }, [paletteSort, filteredPhotos, activeCollectionId])
+
+  const displayedPhotos = paletteSort ? paletteSortedPhotos : filteredPhotos
+  const visiblePhotos   = isSearching ? searchResults : displayedPhotos.slice(0, limit)
+  const remaining       = isSearching ? 0 : displayedPhotos.length - limit
 
   const handleCollectionChange = (id) => {
     setActiveCollectionId(id)
     setLimit(PAGE_SIZE)
+    setPaletteSort(false)
     clearSearch()
   }
 
@@ -142,7 +260,8 @@ const Photography = () => {
             transition={{ duration: 0.6, delay: 0.15 }}
             viewport={{ once: true }}
           >
-            <Box sx={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 1, mb: 6 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, mb: 6 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 1 }}>
               {[{ s3Album: 'all', name: 'All' }, ...collections].map((col) => {
                 const active = activeCollectionId === col.s3Album
                 return (
@@ -173,6 +292,33 @@ const Photography = () => {
                   />
                 )
               })}
+            </Box>
+              {activeCollectionId !== 'all' && (
+                <Chip
+                  icon={<ColorLens sx={{ fontSize: '0.9rem !important' }} />}
+                  label="Sort by color"
+                  onClick={() => setPaletteSort(v => !v)}
+                  sx={{
+                    height: 28,
+                    fontSize: '0.75rem',
+                    fontWeight: paletteSort ? 700 : 400,
+                    background: paletteSort
+                      ? 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)'
+                      : 'rgba(139, 92, 246, 0.08)',
+                    color: paletteSort ? '#fff' : 'rgba(139,92,246,0.8)',
+                    border: paletteSort ? 'none' : '1px solid rgba(139, 92, 246, 0.2)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      background: paletteSort
+                        ? 'linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)'
+                        : 'rgba(139, 92, 246, 0.15)',
+                      color: paletteSort ? '#fff' : 'rgba(139,92,246,1)',
+                    },
+                    '& .MuiChip-icon': { color: paletteSort ? '#fff' : 'rgba(139,92,246,0.7)' },
+                  }}
+                />
+              )}
             </Box>
           </motion.div>
         )}
