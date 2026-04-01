@@ -8,6 +8,7 @@ import {
   DialogContent,
   IconButton,
   Chip,
+  useMediaQuery,
 } from '@mui/material'
 import { Close as CloseIcon, Camera, Collections, ColorLens } from '@mui/icons-material'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -123,6 +124,24 @@ function nearestNeighborPaletteOrder(photos) {
   return optimized.map(i => photos[i])
 }
 
+// Reorder sorted items so masonry's round-robin column assignment
+// fills each column with a contiguous color slice instead of interleaving.
+// Input:  [0,1,2,3,4,5,6,7,8]  cols=3
+// Output: [0,3,6,1,4,7,2,5,8]  → col0 gets 0,1,2 | col1 gets 3,4,5 | col2 gets 6,7,8
+function reorderForMasonryColumns(items, cols) {
+  if (cols <= 1) return items
+  const n = items.length
+  const perCol = Math.ceil(n / cols)
+  const result = []
+  for (let i = 0; i < n; i++) {
+    const col = i % cols
+    const row = Math.floor(i / cols)
+    const src = col * perCol + row
+    if (src < n) result.push(items[src])
+  }
+  return result
+}
+
 // ----------------------------------------------------------------
 
 const S3_MANIFEST_URL    = 'https://joshs-photo-storage.s3.us-east-1.amazonaws.com/bin/manifest.json'
@@ -138,6 +157,10 @@ const Photography = () => {
   const [activeCollectionId, setActiveCollectionId] = useState('all')
   const [limit, setLimit]                   = useState(PAGE_SIZE)
   const [paletteSort, setPaletteSort]       = useState(false)
+
+  const isMobile = useMediaQuery('(max-width:500px)')
+  const isTablet = useMediaQuery('(max-width:900px)')
+  const masonryCols = isMobile ? 1 : isTablet ? 2 : 3
 
   const { results: searchResults, loading: searching, error: searchError, search, clear: clearSearch } = usePhotoSearch()
   const isSearching = searchResults !== null
@@ -164,9 +187,11 @@ const Photography = () => {
     return nearestNeighborPaletteOrder(filteredPhotos)
   }, [paletteSort, filteredPhotos])
 
-  const displayedPhotos = paletteSort ? paletteSortedPhotos : filteredPhotos
-  const visiblePhotos   = isSearching ? searchResults : displayedPhotos.slice(0, limit)
-  const remaining       = isSearching ? 0 : displayedPhotos.length - limit
+  const basePhotos    = paletteSort ? paletteSortedPhotos : filteredPhotos
+  const slicedPhotos  = basePhotos.slice(0, limit)
+  const displayedPhotos = paletteSort ? reorderForMasonryColumns(slicedPhotos, masonryCols) : slicedPhotos
+  const visiblePhotos   = isSearching ? searchResults : displayedPhotos
+  const remaining       = isSearching ? 0 : basePhotos.length - limit
 
   const handleCollectionChange = (id) => {
     setActiveCollectionId(id)
@@ -354,7 +379,7 @@ const Photography = () => {
 
         <AnimatePresence mode="wait">
           <Masonry
-            key={isSearching ? 'search' : activeCollectionId}
+            key={isSearching ? 'search' : `${activeCollectionId}-${paletteSort}-${masonryCols}`}
             breakpointCols={{ default: 3, 900: 2, 500: 1 }}
             className="masonry-grid"
             columnClassName="masonry-grid-col"
