@@ -160,9 +160,9 @@ const Photography = () => {
   }, [shuffled, activeCollectionId])
 
   const paletteSortedPhotos = useMemo(() => {
-    if (!paletteSort || activeCollectionId === 'all') return filteredPhotos
+    if (!paletteSort) return filteredPhotos
     return nearestNeighborPaletteOrder(filteredPhotos)
-  }, [paletteSort, filteredPhotos, activeCollectionId])
+  }, [paletteSort, filteredPhotos])
 
   const displayedPhotos = paletteSort ? paletteSortedPhotos : filteredPhotos
   const visiblePhotos   = isSearching ? searchResults : displayedPhotos.slice(0, limit)
@@ -260,8 +260,7 @@ const Photography = () => {
             transition={{ duration: 0.6, delay: 0.15 }}
             viewport={{ once: true }}
           >
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, mb: 6 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 1, mb: 6, alignItems: 'center' }}>
               {[{ s3Album: 'all', name: 'All' }, ...collections].map((col) => {
                 const active = activeCollectionId === col.s3Album
                 return (
@@ -292,33 +291,32 @@ const Photography = () => {
                   />
                 )
               })}
-            </Box>
-              {activeCollectionId !== 'all' && (
-                <Chip
-                  icon={<ColorLens sx={{ fontSize: '0.9rem !important' }} />}
-                  label="Sort by color"
-                  onClick={() => setPaletteSort(v => !v)}
-                  sx={{
-                    height: 28,
-                    fontSize: '0.75rem',
-                    fontWeight: paletteSort ? 700 : 400,
-                    background: paletteSort
-                      ? 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)'
-                      : 'rgba(139, 92, 246, 0.08)',
-                    color: paletteSort ? '#fff' : 'rgba(139,92,246,0.8)',
-                    border: paletteSort ? 'none' : '1px solid rgba(139, 92, 246, 0.2)',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    '&:hover': {
-                      background: paletteSort
-                        ? 'linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)'
-                        : 'rgba(139, 92, 246, 0.15)',
-                      color: paletteSort ? '#fff' : 'rgba(139,92,246,1)',
-                    },
-                    '& .MuiChip-icon': { color: paletteSort ? '#fff' : 'rgba(139,92,246,0.7)' },
-                  }}
-                />
-              )}
+              <Box sx={{ width: '1px', height: 20, background: 'rgba(255,255,255,0.1)', mx: 0.5 }} />
+              <Chip
+                icon={<ColorLens sx={{ fontSize: '0.9rem !important' }} />}
+                label="Color flow"
+                onClick={() => setPaletteSort(v => !v)}
+                sx={{
+                  height: 32,
+                  fontSize: '0.8rem',
+                  fontWeight: paletteSort ? 600 : 400,
+                  background: paletteSort
+                    ? 'rgba(139, 92, 246, 0.2)'
+                    : 'rgba(255, 255, 255, 0.05)',
+                  color: paletteSort ? 'rgba(167,139,250,1)' : 'rgba(255,255,255,0.4)',
+                  border: paletteSort
+                    ? '1px solid rgba(139, 92, 246, 0.4)'
+                    : '1px solid rgba(255, 255, 255, 0.08)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    background: 'rgba(139, 92, 246, 0.15)',
+                    color: 'rgba(167,139,250,0.9)',
+                    borderColor: 'rgba(139, 92, 246, 0.3)',
+                  },
+                  '& .MuiChip-icon': { color: paletteSort ? 'rgba(167,139,250,0.9)' : 'rgba(255,255,255,0.3)' },
+                }}
+              />
             </Box>
           </motion.div>
         )}
