@@ -417,6 +417,17 @@ const Photography = () => {
                     loading="lazy"
                     sx={{ width: '100%', height: 'auto', display: 'block', transition: 'transform 0.4s ease' }}
                   />
+                  {isSearching && (
+                    <Box sx={{
+                      position: 'absolute', top: 8, left: 8,
+                      background: 'rgba(0,0,0,0.75)', color: '#fff',
+                      borderRadius: '50%', width: 28, height: 28,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '0.75rem', fontWeight: 700, lineHeight: 1,
+                    }}>
+                      {index + 1}
+                    </Box>
+                  )}
                   <Box
                     className="photo-overlay"
                     sx={{
@@ -537,11 +548,6 @@ const Photography = () => {
                     {selectedPhoto.albumName && (
                       <Typography sx={{ color: '#ff6b35', fontSize: '0.85rem', fontWeight: 500, mb: 1.5 }}>
                         {selectedPhoto.albumName}
-                      </Typography>
-                    )}
-                    {selectedPhoto.description && (
-                      <Typography sx={{ color: '#999', fontSize: '0.95rem', maxWidth: 500 }}>
-                        {selectedPhoto.description}
                       </Typography>
                     )}
                   </Box>
