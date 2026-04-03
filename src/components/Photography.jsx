@@ -124,12 +124,19 @@ function nearestNeighborPaletteOrder(photos) {
   return optimized.map(i => photos[i])
 }
 
+// Pick the most vivid (highest chroma) palette color, ignoring dull/grey entries.
+function vividColor(photo) {
+  const palette = paletteOf(photo)
+  const chroma = ({ a, b }) => Math.sqrt(a * a + b * b)
+  return palette.reduce((best, e) => chroma(e.lab) > chroma(best.lab) ? e : best, palette[0]).lab
+}
+
 // Sort photos ROYGBIV by hue angle, normalized to 0–2π so red comes first.
 function sortByHue(photos) {
   const TAU = 2 * Math.PI
   return [...photos].sort((pa, pb) => {
-    const la = paletteOf(pa)[0]?.lab ?? { L: 50, a: 0, b: 0 }
-    const lb = paletteOf(pb)[0]?.lab ?? { L: 50, a: 0, b: 0 }
+    const la = vividColor(pa) ?? { L: 50, a: 0, b: 0 }
+    const lb = vividColor(pb) ?? { L: 50, a: 0, b: 0 }
     const ha = (Math.atan2(la.b, la.a) + TAU) % TAU
     const hb = (Math.atan2(lb.b, lb.a) + TAU) % TAU
     return ha !== hb ? ha - hb : la.L - lb.L
