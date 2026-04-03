@@ -124,22 +124,63 @@ function nearestNeighborPaletteOrder(photos) {
   return optimized.map(i => photos[i])
 }
 
-// Reorder sorted items so masonry's round-robin column assignment
-// fills each column with a contiguous color slice instead of interleaving.
-// Input:  [0,1,2,3,4,5,6,7,8]  cols=3
-// Output: [0,3,6,1,4,7,2,5,8]  → col0 gets 0,1,2 | col1 gets 3,4,5 | col2 gets 6,7,8
-function reorderForMasonryColumns(items, cols) {
-  if (cols <= 1) return items
-  const n = items.length
-  const perCol = Math.ceil(n / cols)
-  const result = []
-  for (let i = 0; i < n; i++) {
-    const col = i % cols
-    const row = Math.floor(i / cols)
-    const src = col * perCol + row
-    if (src < n) result.push(items[src])
+// Arrange photos in a 2D grid using simulated annealing so that
+// color-similar photos end up adjacent in both directions.
+function arrangeSA(photos, cols) {
+  if (photos.length <= 1) return photos
+  const n = photos.length
+  const rows = Math.ceil(n / cols)
+  const total = rows * cols
+
+  // Dominant LAB color per photo
+  const labs = photos.map(p => {
+    const pal = paletteOf(p)
+    return pal[0]?.lab ?? { L: 50, a: 0, b: 0 }
+  })
+
+  // Squared Euclidean LAB distance (fast, good enough for arrangement)
+  function labDist(i, j) {
+    const a = labs[i], b = labs[j]
+    return (a.L - b.L) ** 2 + (a.a - b.a) ** 2 + (a.b - b.b) ** 2
   }
-  return result
+
+  // grid[pos] = photo index; only first n positions used (rest are padding)
+  const grid = Array.from({ length: total }, (_, i) => i < n ? i : -1)
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[grid[i], grid[j]] = [grid[j], grid[i]]
+  }
+
+  function posScore(pos) {
+    const p = grid[pos]
+    if (p < 0) return 0
+    const r = Math.floor(pos / cols), c = pos % cols
+    let s = 0
+    if (c > 0 && grid[pos - 1] >= 0)         s += labDist(p, grid[pos - 1])
+    if (c < cols - 1 && grid[pos + 1] >= 0)  s += labDist(p, grid[pos + 1])
+    if (r > 0 && grid[pos - cols] >= 0)       s += labDist(p, grid[pos - cols])
+    if (r < rows - 1 && grid[pos + cols] >= 0) s += labDist(p, grid[pos + cols])
+    return s
+  }
+
+  let temp = 3000
+  const iters = 8000
+  for (let i = 0; i < iters; i++) {
+    const pos1 = Math.floor(Math.random() * n)
+    const pos2 = Math.floor(Math.random() * n)
+    if (pos1 === pos2) continue
+    const before = posScore(pos1) + posScore(pos2)
+    ;[grid[pos1], grid[pos2]] = [grid[pos2], grid[pos1]]
+    const after = posScore(pos1) + posScore(pos2)
+    if (after < before || Math.random() < Math.exp((before - after) / temp)) {
+      // accept
+    } else {
+      ;[grid[pos1], grid[pos2]] = [grid[pos2], grid[pos1]]
+    }
+    temp *= (1 - 1 / iters)
+  }
+
+  return grid.filter(i => i >= 0).map(i => photos[i])
 }
 
 // ----------------------------------------------------------------
@@ -161,6 +202,7 @@ const Photography = () => {
   const isMobile = useMediaQuery('(max-width:500px)')
   const isTablet = useMediaQuery('(max-width:900px)')
   const masonryCols = isMobile ? 1 : isTablet ? 2 : 3
+  const gridCols    = isMobile ? 3 : isTablet ? 5 : 8
 
   const { results: searchResults, loading: searching, error: searchError, search, clear: clearSearch } = usePhotoSearch()
   const isSearching = searchResults !== null
@@ -184,14 +226,13 @@ const Photography = () => {
 
   const paletteSortedPhotos = useMemo(() => {
     if (!paletteSort) return filteredPhotos
-    return nearestNeighborPaletteOrder(filteredPhotos)
-  }, [paletteSort, filteredPhotos])
+    return arrangeSA(filteredPhotos, gridCols)
+  }, [paletteSort, filteredPhotos, gridCols])
 
-  const basePhotos    = paletteSort ? paletteSortedPhotos : filteredPhotos
-  const slicedPhotos  = basePhotos.slice(0, limit)
-  const displayedPhotos = paletteSort ? reorderForMasonryColumns(slicedPhotos, masonryCols) : slicedPhotos
-  const visiblePhotos   = isSearching ? searchResults : displayedPhotos
-  const remaining       = isSearching ? 0 : basePhotos.length - limit
+  const basePhotos      = paletteSort ? paletteSortedPhotos : filteredPhotos
+  const slicedPhotos    = paletteSort ? basePhotos : basePhotos.slice(0, limit)
+  const visiblePhotos   = isSearching ? searchResults : slicedPhotos
+  const remaining       = isSearching || paletteSort ? 0 : basePhotos.length - limit
 
   const handleCollectionChange = (id) => {
     setActiveCollectionId(id)
@@ -378,8 +419,61 @@ const Photography = () => {
         }} />
 
         <AnimatePresence mode="wait">
+          {paletteSort && !isSearching ? (
+            <Box
+              key={`colorgrid-${activeCollectionId}`}
+              sx={{ display: 'grid', gridTemplateColumns: `repeat(${gridCols}, 1fr)`, gap: '3px' }}
+            >
+              {visiblePhotos.map((photo, index) => (
+                <motion.div
+                  key={photo.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3, delay: Math.min(index * 0.003, 0.4) }}
+                >
+                  <Box
+                    onClick={() => setSelectedPhoto(photo)}
+                    sx={{
+                      aspectRatio: '1',
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      position: 'relative',
+                      '&:hover': {
+                        '& .photo-overlay': { opacity: 1 },
+                        '& img': { transform: 'scale(1.05)' },
+                      },
+                    }}
+                  >
+                    <Box
+                      component="img"
+                      src={photo.thumb || photo.medium || photo.src}
+                      alt={photo.title || ''}
+                      loading="lazy"
+                      sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform 0.4s ease' }}
+                    />
+                    <Box
+                      className="photo-overlay"
+                      sx={{
+                        position: 'absolute', inset: 0,
+                        background: 'linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.8) 100%)',
+                        opacity: 0, transition: 'opacity 0.3s ease',
+                        display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+                        p: 1, gap: 0.5,
+                      }}
+                    >
+                      {photo.title && (
+                        <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: '0.65rem', lineHeight: 1.2 }}>
+                          {photo.title}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                </motion.div>
+              ))}
+            </Box>
+          ) : (
           <Masonry
-            key={isSearching ? 'search' : `${activeCollectionId}-${paletteSort}-${masonryCols}`}
+            key={isSearching ? 'search' : `${activeCollectionId}-${masonryCols}`}
             breakpointCols={{ default: 3, 900: 2, 500: 1 }}
             className="masonry-grid"
             columnClassName="masonry-grid-col"
@@ -463,6 +557,7 @@ const Photography = () => {
               </motion.div>
             ))}
           </Masonry>
+          )}
         </AnimatePresence>
 
         {/* Load more */}
