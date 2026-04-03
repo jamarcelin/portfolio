@@ -124,13 +124,14 @@ function nearestNeighborPaletteOrder(photos) {
   return optimized.map(i => photos[i])
 }
 
-// Sort photos ROYGBIV by hue angle (atan2 of LAB a/b channels), then by lightness.
+// Sort photos ROYGBIV by hue angle, normalized to 0–2π so red comes first.
 function sortByHue(photos) {
+  const TAU = 2 * Math.PI
   return [...photos].sort((pa, pb) => {
     const la = paletteOf(pa)[0]?.lab ?? { L: 50, a: 0, b: 0 }
     const lb = paletteOf(pb)[0]?.lab ?? { L: 50, a: 0, b: 0 }
-    const ha = Math.atan2(la.b, la.a)
-    const hb = Math.atan2(lb.b, lb.a)
+    const ha = (Math.atan2(la.b, la.a) + TAU) % TAU
+    const hb = (Math.atan2(lb.b, lb.a) + TAU) % TAU
     return ha !== hb ? ha - hb : la.L - lb.L
   })
 }
