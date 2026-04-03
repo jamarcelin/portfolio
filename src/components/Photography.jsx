@@ -162,7 +162,7 @@ const Photography = () => {
   const isMobile = useMediaQuery('(max-width:500px)')
   const isTablet = useMediaQuery('(max-width:900px)')
   const masonryCols = isMobile ? 1 : isTablet ? 2 : 3
-  const gridCols    = isMobile ? 3 : isTablet ? 5 : 8
+  const gridCols    = isMobile ? 3 : 5
 
   const { results: searchResults, loading: searching, error: searchError, search, clear: clearSearch } = usePhotoSearch()
   const isSearching = searchResults !== null
