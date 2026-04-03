@@ -124,63 +124,15 @@ function nearestNeighborPaletteOrder(photos) {
   return optimized.map(i => photos[i])
 }
 
-// Arrange photos in a 2D grid using simulated annealing so that
-// color-similar photos end up adjacent in both directions.
-function arrangeSA(photos, cols) {
-  if (photos.length <= 1) return photos
-  const n = photos.length
-  const rows = Math.ceil(n / cols)
-  const total = rows * cols
-
-  // Dominant LAB color per photo
-  const labs = photos.map(p => {
-    const pal = paletteOf(p)
-    return pal[0]?.lab ?? { L: 50, a: 0, b: 0 }
+// Sort photos ROYGBIV by hue angle (atan2 of LAB a/b channels), then by lightness.
+function sortByHue(photos) {
+  return [...photos].sort((pa, pb) => {
+    const la = paletteOf(pa)[0]?.lab ?? { L: 50, a: 0, b: 0 }
+    const lb = paletteOf(pb)[0]?.lab ?? { L: 50, a: 0, b: 0 }
+    const ha = Math.atan2(la.b, la.a)
+    const hb = Math.atan2(lb.b, lb.a)
+    return ha !== hb ? ha - hb : la.L - lb.L
   })
-
-  // Squared Euclidean LAB distance (fast, good enough for arrangement)
-  function labDist(i, j) {
-    const a = labs[i], b = labs[j]
-    return (a.L - b.L) ** 2 + (a.a - b.a) ** 2 + (a.b - b.b) ** 2
-  }
-
-  // grid[pos] = photo index; only first n positions used (rest are padding)
-  const grid = Array.from({ length: total }, (_, i) => i < n ? i : -1)
-  for (let i = n - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[grid[i], grid[j]] = [grid[j], grid[i]]
-  }
-
-  function posScore(pos) {
-    const p = grid[pos]
-    if (p < 0) return 0
-    const r = Math.floor(pos / cols), c = pos % cols
-    let s = 0
-    if (c > 0 && grid[pos - 1] >= 0)         s += labDist(p, grid[pos - 1])
-    if (c < cols - 1 && grid[pos + 1] >= 0)  s += labDist(p, grid[pos + 1])
-    if (r > 0 && grid[pos - cols] >= 0)       s += labDist(p, grid[pos - cols])
-    if (r < rows - 1 && grid[pos + cols] >= 0) s += labDist(p, grid[pos + cols])
-    return s
-  }
-
-  let temp = 3000
-  const iters = 8000
-  for (let i = 0; i < iters; i++) {
-    const pos1 = Math.floor(Math.random() * n)
-    const pos2 = Math.floor(Math.random() * n)
-    if (pos1 === pos2) continue
-    const before = posScore(pos1) + posScore(pos2)
-    ;[grid[pos1], grid[pos2]] = [grid[pos2], grid[pos1]]
-    const after = posScore(pos1) + posScore(pos2)
-    if (after < before || Math.random() < Math.exp((before - after) / temp)) {
-      // accept
-    } else {
-      ;[grid[pos1], grid[pos2]] = [grid[pos2], grid[pos1]]
-    }
-    temp *= (1 - 1 / iters)
-  }
-
-  return grid.filter(i => i >= 0).map(i => photos[i])
 }
 
 // ----------------------------------------------------------------
@@ -226,8 +178,8 @@ const Photography = () => {
 
   const paletteSortedPhotos = useMemo(() => {
     if (!paletteSort) return filteredPhotos
-    return arrangeSA(filteredPhotos, gridCols)
-  }, [paletteSort, filteredPhotos, gridCols])
+    return sortByHue(filteredPhotos)
+  }, [paletteSort, filteredPhotos])
 
   const basePhotos      = paletteSort ? paletteSortedPhotos : filteredPhotos
   const slicedPhotos    = paletteSort ? basePhotos : basePhotos.slice(0, limit)
