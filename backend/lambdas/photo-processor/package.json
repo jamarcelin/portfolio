@@ -1,0 +1,12 @@
+{
+  "name": "josh-portfolio-photo-processor",
+  "version": "1.0.0",
+  "description": "Resizes originals into derived sizes (thumb / medium / large)",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.600.0",
+    "openai": "^4.0.0",
+    "sharp": "^0.33.0"
+  }
+}

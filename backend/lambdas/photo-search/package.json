@@ -1,0 +1,10 @@
+{
+  "name": "josh-portfolio-photo-search",
+  "version": "1.0.0",
+  "description": "Semantic photo search via OpenAI text-embedding-3-large + cosine similarity",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.0.0",
+    "openai": "^4.0.0"
+  }
+}

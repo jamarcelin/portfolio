@@ -3,6 +3,7 @@ dist
 .DS_Store
 *.pkg
 .img
+.test-images
 
 # Local admin data (generated artifacts)
 data/
@@ -11,16 +12,17 @@ data/
 admin/.env
 admin/node_modules
 
-# Terraform (moved to backend/)
+# Backend lambdas (build artifacts)
+backend/lambdas/*/node_modules
+backend/lambdas/*/function.zip
+
+# Terraform
 backend/terraform/.terraform
 backend/terraform/.terraform.lock.hcl
-backend/terraform/lambda/function.zip
-backend/terraform/lambda/node_modules
-backend/terraform/lambda/package-lock.json
+backend/terraform/*.tfstate
+backend/terraform/*.tfstate.backup
+backend/terraform/tfplan
 
-# Legacy paths (in case)
-terraform/.terraform
-terraform/.terraform.lock.hcl
-terraform/lambda/function.zip
-terraform/lambda/node_modules
-terraform/lambda/package-lock.json
+# Playground (generated caches + local test images)
+playground/cache/
+playground/embeddings.json

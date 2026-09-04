@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portfolio Admin</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="logo">JM Admin</div>
+    <nav class="mode-tabs">
+      <button class="mode-tab active" data-view="uploader" onclick="switchView('uploader')">Uploader</button>
+      <button class="mode-tab" data-view="color-lab" onclick="switchView('color-lab')">Color Lab</button>
+      <button class="mode-tab" data-view="embeddings" onclick="switchView('embeddings')">Embeddings</button>
+      <button class="mode-tab" data-view="search-lab" onclick="switchView('search-lab')">Search Lab</button>
+      <button class="mode-tab" data-view="pipeline" onclick="switchView('pipeline')">Pipeline</button>
+    </nav>
+    <nav class="steps-nav" id="steps-nav">
+      <div class="step-indicator" data-step="1" onclick="goToStep(1)">
+        <span class="step-num">1</span>
+        <span class="step-label">Load</span>
+      </div>
+      <div class="step-indicator" data-step="2" onclick="goToStep(2)">
+        <span class="step-num">2</span>
+        <span class="step-label">Rotate & Tag</span>
+      </div>
+      <div class="step-indicator" data-step="3" onclick="goToStep(3)">
+        <span class="step-num">3</span>
+        <span class="step-label">Upload</span>
+      </div>
+    </nav>
+    <div class="header-actions" id="header-actions">
+      <button class="btn-ghost" onclick="showLibrary()">Library</button>
+      <button class="btn-ghost" onclick="resetSession()" title="Clear and start over">↺ Reset</button>
+    </div>
+  </header>
+
+  <div id="toast"></div>
+  <div id="library-modal"></div>
+
+  <main id="main-content"></main>
+
+  <script src="app.js"></script>
+</body>
+</html>
